@@ -33,6 +33,7 @@ void forward_msg_to_handler(ht_hash_table* table, talk_msg msg, int integer_key)
 
 // an instance of this routine will exist for each registered receiver
 coroutine void callback_handler(chan incoming_msgs, talk_receiver_registration receiver);
+/* end forward declarations */
 
 
 // main routine to handle emitted messages. Forwards messages to handler 
@@ -255,7 +256,7 @@ void emit(msg_types type, unsigned int id, void* payload) {
 }
 
 void receive(enum msg_types type, void (*callback)(void* payload)) {
-    receive(type, NULL, f);
+    receive(type, NULL, callback);
     return;
 }
 
