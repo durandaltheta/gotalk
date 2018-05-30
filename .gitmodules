@@ -1,0 +1,3 @@
+[submodule "externals/libmill"]
+	path = externals/libmill
+	url = https://github.com/sustrik/libmill
