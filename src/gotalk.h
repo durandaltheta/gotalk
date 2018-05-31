@@ -21,6 +21,7 @@ Example:
 enum msg_types {
 	START_TALK = 0,
 	REGISTER_RECEIVER,
+	UNREGISTER_RECEIVER,
 	TALK_MESSAGES 
 	END_TALK
 };
@@ -39,13 +40,15 @@ void stop_message_center();
 void emit(msg_types type, void* payload);
 
 // send a message with a specific id
-void emit(msg_types type, unsigned int id, void* payload);
+void emit(unsigned int source, msg_types type, void* payload);
 
 // register a callback for a message
 void receive(enum msg_types type, void (*callback)(void* payload));
 
 // register a callback for a message with a specific id
-void receive(unsigned int id, enum msg_types type,
+void receive(unsigned int source, 
+             enum msg_types type,
+             unsigned int destination,
 			 void (*callback)(void* payload));
 
 /* End User Facing Functions */

@@ -102,6 +102,22 @@ void* ht_search(ht_hash_table* ht, const char* key) {
     return NULL;
 }
 
+void* ht_get_by_index(ht_hash_table* ht, const int index) {
+    ht_item* item = ht->items[index];
+    int i = 1;
+    while (item != NULL) {
+		if (item != &HT_DELETED_ITEM) {
+			if (strcmp(item->key, key) == 0) {
+				return item->value;
+			}
+			index = ht_get_hash(key, ht->size, i);
+			item = ht->items[index];
+			i++;
+		}
+    } 
+    return NULL;
+}
+
 void ht_delete(ht_hash_table* ht, const char* key) {
     const int load = ht->count * 100 / ht->size;
     if (load < 10) {

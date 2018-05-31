@@ -6,18 +6,18 @@
 
 typedef struct {
     enum msg_types type;
-	unsigned int id;
+	unsigned int source;
     void *payload;
+    unsigned int payload_size;
 } talk_msg;
 
 typedef struct {
     enum msg_types type;
-    unsigned int id;
+    unsigned int destination;
 	void (*callback)(talk_msg);
 } talk_registration;
 
 chan g_msg_channel = chmake(talk_msg, TALK_MESSAGE_CENTER_BUFFER_SIZE);
-
 
 /*****************************************************************************/
 /* Begin Forward Declarations */
@@ -28,14 +28,13 @@ chan retrieve_msg_channel(ht_hash_table* table, char* key);
 coroutine void message_center(chan main_ch);
 void setup_message_center(&msg_manager_channels);
 void cleanup_message_center(chan msg_manager_channels[]);
-void forward_msg(ht_hash_table* table, talk_msg msg);
+void forward_msg(chan channels[], talk_msg msg);
 void forward_receive_registration(chan channels[], talk_msg msg);
 
 // an instance of this routine will exist for each message type
 coroutine void message_manager(chan incoming_msgs);
 void cleanup_message_manager(ht_hash_table* table, const int total_handlers);
 void register_receiver(ht_hash_table* receiver_table, talk_msg msg);
-void forward_msg_to_handler(ht_hash_table* table, talk_msg msg, int integer_key);
 
 // an instance of this routine will exist for each registered receiver
 coroutine void callback_handler(chan incoming_msgs, talk_registration receiver);
@@ -69,8 +68,13 @@ chan retrieve_msg_channel(ht_hash_table* table, char* key) {
 
 /*****************************************************************************/
 /* Begin Message Center */
-// main routine to handle emitted messages. Forwards messages to handler 
-// routines (1 per message type) that manage the callback handler routines
+/*
+ * Entry point routine to handle emitted messages. Forwards messages to handler 
+ * routines (1 per message type) that manage the callback handler routines. 
+ *
+ * The message center is responsible for sending a message to the correct 
+ * message handler
+ */
 coroutine void message_center(chan main_ch) {
     bool start = false;
     bool exit = false;
@@ -121,16 +125,6 @@ void forward_msg(chan channels[], talk_msg msg) {
     return;
 }
 
-void forward_msg_to_handler(ht_hash_table* table, talk_msg msg, int integer_key) {
-    char* key = get_key(integer_key);
-
-    chan ch = retrieve_msg_channel(table, key);
-    if(ch) {
-        chs(ch, talk_msg, msg);
-    }
-    return;
-}
-
 void setup_message_center(chan msg_manager_channels[]) {
 	for(int i = 0; i < g_total_msg_types; g++) {
 		//create handler communication channel
@@ -164,11 +158,15 @@ void cleanup_message_center(chan msg_manager_channels[]) {
 
 /*****************************************************************************/
 /* Begin Message Manager */
+/* 
+ * Message managers contain the collection of all registered callback handlers
+ * for a particular message type. Thus, when a message comes in it is
+ * redistributed to *all* callback handlers managed by the message manager.
+ */
 coroutine void message_manager(chan incoming_msgs) {
     bool start = false;
     bool exit = false;
     ht_hash_table* receiver_table = ht_new();
-    unsigned int num_callbacks = 0;
     while(1) {
         choose {
         in(incoming_msgs, talk_msg, msg):
@@ -178,12 +176,15 @@ coroutine void message_manager(chan incoming_msgs) {
                 exit = true;
                 cleanup_message_manager(receiver_table);
             } else if(msg.type == REGISTER_RECEIVER) {
-                register_receiver(receiver_table, msg, num_callbacks);
-                num_callbacks++;
+                register_receiver(receiver_table, msg);
             } else {
                 if(start) {
-                    for(int i = 0, i < num_callbacks; i++) {
-                        forward_msg_to_handler(receiver_table, msg, i);
+                    int size = receiver_table->count;
+                    for(int i = 0, i < size; i++) {
+                        chan ch = *(ht_get_by_index(receiver_table, i));
+                        if(ch) {
+                            chs(ch, talk_msg, msg);
+                        }
                     }
                 }
             }
@@ -194,16 +195,14 @@ coroutine void message_manager(chan incoming_msgs) {
     return;
 }
 
-void register_receiver(ht_hash_table* receiver_table, talk_msg msg, int integer_key) {
+void register_receiver(ht_hash_table* receiver_table, talk_msg msg) {
     enum msg_types type;
     talk_registration reg;
 
     reg = (talk_registration)(*payload);
 
-    char* key = get_key(integer_key);
-
     chan ch = chmake(talk_msg, TALK_MESSAGE_MANAGER_BUFFER_SIZE);
-
+    char* key = get_key(reg.destination);
     ht_insert(receiver_table, key, &ch);
     go(callback_handler(ch, reg);
     struct talk_msg start_msg = {START_TALK, NULL, NULL};
@@ -229,6 +228,10 @@ void cleanup_message_manager(ht_hash_table* table, const int total_handlers) {
 
 /*****************************************************************************/
 /* Begin Callback Handler */
+/* 
+ * Callback handlers run in their own coroutine to ensure the desired function
+ * runs in its own routine and doesn't slow down the messaging system.
+ */
 coroutine void callback_handler(chan incoming_msgs, talk_registration receiver) {
     bool start = false;
     bool exit = false;
@@ -241,6 +244,8 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration receiver) 
                 exit = true;
             } else {
                 if(start) {
+                    // Don't care about the message type, that's handled 
+                    // in the message center
                     if(msg.id == receiver.id 
                             || receiver.id == NULL) {
                         (*(receiver.callback))(msg);
@@ -275,25 +280,27 @@ void stop_message_center() {
 }
 
 void emit(msg_types type, void* payload) {
-    emit(type, NULL, payload);
+    emit(NULL, type, payload);
     return;
 }
 
-void emit(msg_types type, unsigned int id, void* payload) {
-    talk_msg msg = {type, id, payload};
+void emit(unsigned int source, msg_types type, void* payload) {
+    talk_msg msg = {type, source, payload};
     chs(g_msg_channel, talk_msg, msg);
     return;
 }
 
 void receive(enum msg_types type, void (*callback)(void* payload)) {
-    receive(type, NULL, callback);
+    receive(NULL, type, NULL, callback);
     return;
 }
 
-void receive(unsigned int id, enum msg_types type,
-			 void (*callback)(void* payload)) {
-	talk_registration receive_reg = {id, type, callback};
-	talk_msg rec_msg = {REGISTER_RECEIVER, NULL, &receive_reg};
+void receive(unsigned int source, 
+             enum msg_types type,
+             unsigned int destination,
+			 void (*callback)(void* payload));
+	talk_registration receive_reg = {destination, type, callback};
+	talk_msg rec_msg = {REGISTER_RECEIVER, source, &receive_reg};
 	emit(rec_msg);
 	return;
 }

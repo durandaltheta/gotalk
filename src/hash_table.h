@@ -30,4 +30,5 @@ static ht_hash_table* ht_new_sized(const int base_size);
 ht_hash_table* ht_new();
 void ht_insert(ht_hash_table* ht, const char* key, const void* value);
 void* ht_search(ht_hash_table* ht, const char* key);
+void* ht_get_by_index(ht_hash_table* ht, const int index);
 void ht_delete(ht_hash_table* h, const char* key);
