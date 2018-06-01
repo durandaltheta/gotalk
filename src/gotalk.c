@@ -10,14 +10,6 @@ typedef struct {
     struct List *next;
 } List;
 
-/* List Forward Declarations */
-List* create_list();
-List* next(List *node);
-void* get(List *node, int index);
-bool insert(List *node, List *new_item, int index);
-List* remove(List *node, int index);
-/* End List Forward Declarations */
-
 typedef struct {
     enum msg_types type;
 	unsigned int source;
@@ -42,6 +34,14 @@ chan g_msg_channel = chmake(talk_msg, TALK_MESSAGE_CENTER_BUFFER_SIZE);
 
 /*****************************************************************************/
 /* Begin Forward Declarations */
+
+/* List Forward Declarations */
+List* create_list();
+List* next(List *node);
+void* get(List *node, int index);
+bool insert(List *node, List *new_item, int index);
+void* remove(List *node, int index);
+/* End List Forward Declarations */
 
 // only one instance of this routine will exist
 coroutine void message_center(chan main_ch);
@@ -83,14 +83,28 @@ List* next(List *node) {
 
 // Returns true on success. Returns false when not enough index items to insert
 // where specified.
-bool insert(List *node, List *new_item, int index) {
-    for(int i=0; i<index; i++) {
+bool insert(List *node, List *new_item, unsigned int index) {
+    for(unsigned int i=0; i<index; i++) {
         node = next(node);
         if(node == NULL) return false;
     }
-    List *node2 = (*node).next;
-    (*node).next = new_item;
-    (*new_item).next = node2;
+    if(index > 0) {
+        List *node2 = (*node).next;
+        (*node).next = new_item;
+        (*new_item).next = node2;
+    } else {
+        // we do this juggling to ensure the head node stays the same for 
+        // the caller and so that new_item doesn't disappear from under the 
+        // caller either.
+        List *tmp = create_list;
+        (*tmp).data = (*node).data;
+        (*tmp).next = (*node).next;
+        (*node).data = (*new_item).data;
+        (*node).next = new_item;
+        (*new_item).data = (*tmp).data;
+        (*new_item).next = (*tmp).next;
+        free(tmp);
+    }
     return true;
 }
 
@@ -104,8 +118,8 @@ void* get(List *node, int index) {
     return (*node).data;
 }
 
-// Returns removed list item on success, returns NULL if index too large
-List* remove(List *node, int index) {
+// Returns removed list data on success, returns NULL if index too large
+void* remove(List *node, int index) {
     List* prevNode;
     for(int i=0; i<index; i++) {
         prevNode = node;
@@ -115,7 +129,9 @@ List* remove(List *node, int index) {
         if(node == NULL) return NULL;
     }
     (*prevNode).next = (*node).next;
-    return node;
+    void* data = (*node).data;
+    free(node)
+    return data;
 }
 /* End List Functions */
 /*****************************************************************************/
@@ -323,7 +339,7 @@ void unregister_receiver(receiver_list, index, chan ch, talk_msg msg) {
                 unregister_receiver *unreg = msg.payload 
                 //free 1
                 free(unreg);
-                remove(receiver_table, index);
+                remove(receiver_list, index);
                 chclose(ch);
                 break;
             } else if(msg.type == REGISTER_RECEIVER) {
