@@ -19,8 +19,8 @@ Example:
 
 enum msg_types {
 	START_TALK = 0,
-	REGISTER_listenR,
-	UNREGISTER_listenR,
+	REGISTER_LISTENER,
+	UNREGISTER_LISTENER,
 #ifdef TALK_MESSAGES
 	TALK_MESSAGES 
 #endif
@@ -33,7 +33,7 @@ enum msg_types {
 // start the gotalk messaging system
 void start_message_center();
 
-// stop the gotalk messaging system and delete all listenrs
+// stop the gotalk messaging system and delete all listeners
 void stop_message_center();
 
 // send a message
@@ -49,7 +49,7 @@ void listen(enum msg_types type, void (*callback)(void* payload));
 // id's. These can be an object addresses. As this is raw C the objects won't be 
 // directly called with the provided callback function. *However*, the callback
 // function itself can use the provided object addresses and call any function
-// it wishes from there. The callback is only called if the listenr's source
+// it wishes from there. The callback is only called if the listener's source
 // and the sayted message's source match.
 void listen(unsigned int source, 
              enum msg_types type,
@@ -57,8 +57,8 @@ void listen(unsigned int source,
 			 void (*callback)(void* payload));
 
 // unregister all callbacks for a message type with specified destination.
-// A 'NULL' destination only matches listenrs with the specified message type
-// that also have a 'NULL' destination, it does *not* match all listenrs.
+// A 'NULL' destination only matches listeners with the specified message type
+// that also have a 'NULL' destination, it does *not* match all listeners.
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
 chan unlisten(enum msg_types type, unsigned int destination);

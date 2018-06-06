@@ -55,10 +55,10 @@ void forward_listen_registration(chan channels[], talk_msg msg);
 // an instance of this routine will exist for each message type
 coroutine void message_manager(chan incoming_msgs);
 void cleanup_message_manager(List* list);
-void register_listenr(List* listenr_list, talk_msg msg);
-void unregister_listenr(listenr_list, chan ch, talk_msg msg);
+void register_listener(List* listener_list, talk_msg msg);
+void unregister_listener(listener_list, chan ch, talk_msg msg);
 
-// an instance of this routine will exist for each registered listenr
+// an instance of this routine will exist for each registered listener
 coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg);
 /* End Forward Declarations */
 /*****************************************************************************/
@@ -67,6 +67,7 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg);
 /*****************************************************************************/
 /* Begin List Functions */
 List* create_list() {
+    //malloc 2
     List *list = malloc(sizeof(List));
     (*list).data = NULL;
     (*list).next = NULL;
@@ -103,6 +104,7 @@ bool insert(List *node, List *new_item, unsigned int index) {
         (*node).next = new_item;
         (*new_item).data = (*tmp).data;
         (*new_item).next = (*tmp).next;
+        //free 2
         free(tmp);
     }
     return true;
@@ -162,10 +164,10 @@ coroutine void message_center(chan main_ch) {
                     exit = true;
                     cleanup_message_center(msg_manager_channels);
                     break;
-                case REGISTER_listenR:
+                case REGISTER_LISTENER:
                     if(start) forward_registration(msg_manager_channels, msg);
                     break;
-                case UNREGISTER_listenR:
+                case UNREGISTER_LISTENER:
                     if(start) forward_unregistration(msg_manager_channels, msg);
                     break;
                 default:
@@ -257,7 +259,7 @@ void cleanup_message_center(chan msg_manager_channels[]) {
 coroutine void message_manager(chan incoming_msgs) {
     bool start = false;
     bool exit = false;
-    List* listenr_list = create_list();
+    List* listener_list = create_list();
     while(1) {
         choose {
         in(incoming_msgs, talk_msg, msg):
@@ -267,19 +269,18 @@ coroutine void message_manager(chan incoming_msgs) {
                     break;
                 case END_TALK:
                     exit = true;
-                    cleanup_message_manager(listenr_list);
+                    cleanup_message_manager(listener_list);
                     break;
-                case REGISTER_listenR:
-                    if(start) register_listenr(listenr_list, msg);
+                case REGISTER_LISTENER:
+                    if(start) register_listener(listener_list, msg);
                     break;
-                case UNREGISTER_listenR:
+                case UNREGISTER_LISTENER:
                     if(start) {
-                        int i = 0
-                        List *tmp_list = listenr_list;
-	                    while(tmp_list != NULL) {
+                        List *tmp_list = listener_list;
+	                    for(int i=0; tmp_list != NULL; i++) {
                             chan ch = (*(*list).data);
                             if(ch) {
-                                unregister_listenr(listenr_list, i, ch, msg);
+                                unregister_listener(listener_list, i, ch, msg);
                             }
                             tmp_list = next(tmp_list);
                             i++;
@@ -288,7 +289,7 @@ coroutine void message_manager(chan incoming_msgs) {
                     break;
                 default:
                     if(start) {
-                        List *tmp_list = listenr_list;
+                        List *tmp_list = listener_list;
 	                    while(tmp_list != NULL) {
                             chan ch = (*(*list).data);
                             if(ch) {
@@ -306,7 +307,7 @@ coroutine void message_manager(chan incoming_msgs) {
     return;
 }
 
-void register_listenr(List* listenr_list, talk_msg msg) {
+void register_listener(List* listener_list, talk_msg msg) {
     enum msg_types type;
     talk_registration *reg = (talk_registration*)payload;
 
@@ -315,8 +316,8 @@ void register_listenr(List* listenr_list, talk_msg msg) {
     List* node = create_list();
     (*node).data = &ch;
 
-    //insert the new listenr at the head of the list
-    insert(listenr_list, node, 0);
+    //insert the new listener at the head of the list
+    insert(listener_list, node, 0);
 
     talk_msg start_msg = {START_TALK, NULL, NULL};
     chs(ch, talk_msg, start_msg);
@@ -326,23 +327,23 @@ void register_listenr(List* listenr_list, talk_msg msg) {
     return;
 }
 
-void unregister_listenr(listenr_list, index, chan ch, talk_msg msg) {
-    talk_msg unreg_msg = {UNREGISTER_listenR, NULL, NULL};
+void unregister_listener(listener_list, index, chan ch, talk_msg msg) {
+    talk_msg unreg_msg = {UNREGISTER_listener, NULL, NULL};
     chs(ch, talk_msg, unreg_msg);
     while(1) {
         choose {
         in(ch, talk_msg msg):
-            if(msg.type == UNREGISTER_listenR) {
+            if(msg.type == UNREGISTER_listener) {
                 // wait to delete the channel until we listen unregistration 
                 // confirmation
                 
-                unregister_listenr *unreg = msg.payload 
+                unregister_listener *unreg = msg.payload 
                 //free 1
                 free(unreg);
-                remove(listenr_list, index);
+                remove(listener_list, index);
                 chclose(ch);
                 break;
-            } else if(msg.type == REGISTER_listenR) {
+            } else if(msg.type == REGISTER_listener) {
                 break;
             }
         end 
@@ -379,11 +380,11 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
     bool start = false;
     bool exit = false;
 
-    talk_registration listenr;
-    listenr.type = (*tmp_reg).type;
-    listenr.source = (*tmp_reg).source;
-    listenr.destination = (*tmp_reg).destination;
-    listenr.callback = (*tmp_reg).callback;
+    talk_registration listener;
+    listener.type = (*tmp_reg).type;
+    listener.source = (*tmp_reg).source;
+    listener.destination = (*tmp_reg).destination;
+    listener.callback = (*tmp_reg).callback;
 
     //free 0
     free(tmp_reg);
@@ -401,14 +402,14 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
                     chclose(incoming_msgs);
                     exit = true;
                     break;
-                case UNREGISTER_listenR:
-                    unregister_listenr *unreg = msg.payload;
-                    if((*unreg).source == listenr.source) {
-                        chs(talk_msg, {UNREGISTER_listenR, NULL, NULL});
+                case UNREGISTER_LISTENER:
+                    unregister_listener *unreg = msg.payload;
+                    if((*unreg).source == listener.source) {
+                        chs(talk_msg, {UNREGISTER_listener, NULL, NULL});
                         exit = true;
                         break;
                     } else {
-                        chs(talk_msg, {REGISTER_listenR, NULL, NULL});
+                        chs(talk_msg, {REGISTER_listener, NULL, NULL});
                     }
                 #ifdef OBJECT_CALLBACKS
                 #endif
@@ -416,9 +417,9 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
                     if(start) {
                         // Don't care about the message type, that's handled 
                         // in the message center
-                        if(msg.source == listenr.source
-                                || listenr.source == NULL) {
-                            (*(listenr.callback))(msg);
+                        if(msg.source == listener.source
+                                || listener.source == NULL) {
+                            (*(listener.callback))(msg);
                         }
                     }
                     break;
@@ -472,112 +473,17 @@ void listen(unsigned int source,
     //malloc 0
 	talk_registration reg* = malloc(sizeof(talk_registration));
     (*reg) = {type, source, destination, callback};
-	talk_msg rec_msg = {REGISTER_listenR, source, reg};
+	talk_msg rec_msg = {REGISTER_listener, source, reg};
 	say(rec_msg);
 	return;
 }
-
-/* Message type defnie marcro
- *
-//macro:
-#define message(TYPE, ...); #define 
- */
-
-/* say macro 
- *
-//macro:
-//say(SOURCE, TYPE, ARG0, ... ARGN);
-
-#ifndef TYPE
-#define TYPE
-typedef struct {
-    enum msg_types type;
-	unsigned int source;
-	ARG0 ARG0v;
-	...
-	ARGN ARGNv;
-} talk_msg_TYPE;
-
-#define TMP_MESSAGES MESSAGES
-#ifdef TALK_MESSAGES
-#undef TALK_MESSAGES
-#define TALK_MESSAGES  TMP_MESSAGES \
-                       TYPE,
-#undef TMP_MESSAGES
-#endif
-#endif
- */
-
-/*
- * Object member listenr macro
-//macro:
-//listen(SOURCE, TYPE, CLASS object, (CLASS::FUNCTION), ARG0, ..., ARGN);
-//or:
-//listen(SOURCE, TYPE, DESTINATION, CALLBACK, ARG0, ... ARGN);
-//handling for second option just evaluates to the above text while replacing
-//SOURCE, TYPE, DESTINATION, and CALLBACK with real values
-#ifndef OBJECT_CALLBACKS
-#define OBJECT_CALLBACKS //cases for OBJECT_CALLBACKS in callback handler
-#endif
-
-#ifndef CLASS_FUNCTION
-#define CLASS_FUNCTION_ARG0 ... ARGN
-typedef struct {
-    enum msg_types type;
-    unsigned int source;
-    CLASS& object; 
-    ARG0 ARG0v;
-    ...
-    ARGN ARGNv;
-} talk_registration_CLASS_FUNCTION;
-
-#define TMP_MESSAGES MESSAGES
-#ifdef TALK_MESSAGES
-#undef TALK_MESSAGES
-#define TALK_MESSAGES  TMP_MESSAGES \
-                       REGISTER_listenR_CLASS_FUNCTION,
-#undef TMP_MESSAGES
-#endif
-#endif
-
-#ifndef TYPE
-#define TYPE
-typedef struct {
-    enum msg_types type;
-	unsigned int source;
-	ARG0 ARG0v;
-	...
-	ARGN ARGNv;
-} talk_msg_TYPE;
-
-#define TMP_MESSAGES MESSAGES
-#ifdef TALK_MESSAGES
-#undef TALK_MESSAGES
-#define TALK_MESSAGES  TMP_MESSAGES \
-                       TYPE,
-#undef TMP_MESSAGES
-#endif
-#endif
-
-void listen-o(unsigned int source, 
-          enum msg_types type, 
-          CLASS& object, 
-          (CLASS::*FUNCTION)(void* payload)) {
-talk_registration_CLASS_FUNCTION reg* = malloc(sizeof(talk_registration_CLASS_FUNCTION));
-(*reg) = {type, source, object, FUNCTION};
-talk_msg rec_msg = {REGISTER_listenR_CLASS_FUNCTION, source, reg};
-say(rec_msg);
-}
-#endif
-listen-o(source, type, CLASS object, (CLASS::FUNCTION)(void*payload));
- */
 
 chan unlisten(enum msg_types type, unsigned int destination) {
     //malloc 1
     talk_unregistration unreg* = malloc(sizeof(talk_unregistration));
     chan conf_ch = chmake(int, 1);
     (*unreg) = {type, source, destination, conf_ch};
-    talk_msg unrec_msg = {UNREGISTER_listenR, NULL, unreg};
+    talk_msg unrec_msg = {UNREGISTER_listener, NULL, unreg};
     say(unrec_msg);
     return conf_ch;
 }
