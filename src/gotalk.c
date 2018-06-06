@@ -436,55 +436,57 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
 
 /*****************************************************************************/
 /* Start User Facing Functions */
-void start_message_center() {
+chan start_message_center() {
+    chan ch = chmake(talk_msg, TALK_MESSAGE_CENTER_BUFFER_SIZE);
 	talk_msg start_msg = {START_TALK, NULL, NULL};
-	go(g_msg_channel);
-	chs(g_msg_channel, talk_msg, start_msg);
-	return;
+	go(ch);
+	chs(ch, talk_msg, start_msg);
+	return ch;
 }
 
-void stop_message_center() {
+void stop_message_center(chan ch) {
 	talk_msg start_msg = {END_TALK, NULL, NULL};
-	go(g_msg_channel);
-	chs(g_msg_channel, talk_msg, start_msg);
+	go(ch);
+	chs(ch, talk_msg, start_msg);
 	return;
 }
 
-void say(msg_types type, void* payload) {
-    say(NULL, type, payload);
+void say(chan msg_center, msg_types type, void* payload) {
+    say(msg_center, NULL, type, payload);
     return;
 }
 
-void say(unsigned int source, msg_types type, void* payload) {
+void say(chan msg_center, unsigned int source, msg_types type, void* payload) {
     talk_msg msg = {type, source, payload};
-    chs(g_msg_channel, talk_msg, msg);
+    chs(msg_center, talk_msg, msg);
     return;
 }
 
-void listen(msg_types type, void (*callback)(void* payload)) {
-    listen(NULL, type, NULL, callback);
+void listen(chan msg_center, msg_types type, void (*callback)(void* payload)) {
+    listen(msg_center, NULL, type, NULL, callback);
     return;
 }
 
-void listen(unsigned int source, 
+void listen(chan msg_center,
+             unsigned int source, 
              msg_types type,
              unsigned int destination,
-			 void (*callback)(void* payload));
+			 void (*callback)(void* payload)) {
     //malloc 0
 	talk_registration reg* = malloc(sizeof(talk_registration));
     (*reg) = {type, source, destination, callback};
-	talk_msg rec_msg = {REGISTER_listener, source, reg};
-	say(rec_msg);
+	talk_msg reg_msg = {REGISTER_listener, source, reg};
+	say(msg_center, reg_msg);
 	return;
 }
 
-chan unlisten(msg_types type, unsigned int destination) {
+chan unlisten(chan msg_center, msg_types type, unsigned int destination) {
     //malloc 1
     talk_unregistration unreg* = malloc(sizeof(talk_unregistration));
     chan conf_ch = chmake(int, 1);
     (*unreg) = {type, source, destination, conf_ch};
     talk_msg unrec_msg = {UNREGISTER_listener, NULL, unreg};
-    say(unrec_msg);
+    say(msg_center, unrec_msg);
     return conf_ch;
 }
 /* End User Facing Functions */

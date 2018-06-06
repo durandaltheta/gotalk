@@ -31,19 +31,19 @@ typedef enum {
 /* Begin User Facing Functions */
 
 // start the gotalk messaging system
-void start_message_center();
+chan start_message_center();
 
 // stop the gotalk messaging system and delete all listeners
-void stop_message_center();
+void stop_message_center(chan ch);
 
 // send a message
-void say(msg_types type, void* payload);
+void say(chan msg_center, msg_types type, void* payload);
 
 // send a message with a specific source id. This can be an object address.
-void say(unsigned int source, msg_types type, void* payload);
+void say(chan msg_center, unsigned int source, msg_types type, void* payload);
 
 // register a callback for a message
-void listen(msg_types type, void (*callback)(void* payload));
+void listen(chan msg_center, msg_types type, void (*callback)(void* payload));
 
 // register a callback for a message with a specific destination and source 
 // id's. These can be an object addresses. As this is raw C the objects won't be 
@@ -51,7 +51,8 @@ void listen(msg_types type, void (*callback)(void* payload));
 // function itself can use the provided object addresses and call any function
 // it wishes from there. The callback is only called if the listener's source
 // and the say message's source match.
-void listen(unsigned int source, 
+void listen(chan msg_center,
+             unsigned int source, 
              msg_types type,
              unsigned int destination,
 			 void (*callback)(void* payload));
@@ -61,7 +62,7 @@ void listen(unsigned int source,
 // that also have a 'NULL' destination, it does *not* match all listeners.
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
-chan unlisten(msg_types type, unsigned int destination);
+chan unlisten(chan msg_center, msg_types type, unsigned int destination);
 
 /* End User Facing Functions */
 /*****************************************************************************/
