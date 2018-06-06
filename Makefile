@@ -1,22 +1,21 @@
 cc = gcc
-source = "src"
+source = src
+build = bld
+go = "externals/libmill/"
 
 all: gotalk
 
 libmill: 
-	cd externals/libmill 
-	./configure 
-	make 
-	make check 
-	sudo make install
-	cd ../../
+	cmake $(go) \
+	make $(go) \
+	sudo make install $(go)
 
 gotalk: libmill $(source)/gotalk.c $(source)/gotalk.h
-	mkdir -p bld
-	$(cc) -c gotalk.c -o gotalk.o
+	mkdir -p $(build); \
+	$(cc) -c $(source)/gotalk.c -o $(build)/gotalk.o
 
 install: gotalk 
-	sudo cp gotalk.o /usr/local/bin/ 
+	sudo cp gotalk.o /usr/local/bin/ \
 	sudo cp gotalk.h /usr/local/include/
 
 .PHONY : clean

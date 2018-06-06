@@ -17,7 +17,7 @@ Example:
  for each message type.
 */
 
-enum msg_types {
+typedef enum {
 	START_TALK = 0,
 	REGISTER_LISTENER,
 	UNREGISTER_LISTENER,
@@ -25,7 +25,7 @@ enum msg_types {
 	TALK_MESSAGES 
 #endif
 	END_TALK
-};
+} msg_types;
 
 /*****************************************************************************/
 /* Begin User Facing Functions */
@@ -43,16 +43,16 @@ void say(msg_types type, void* payload);
 void say(unsigned int source, msg_types type, void* payload);
 
 // register a callback for a message
-void listen(enum msg_types type, void (*callback)(void* payload));
+void listen(msg_types type, void (*callback)(void* payload));
 
 // register a callback for a message with a specific destination and source 
 // id's. These can be an object addresses. As this is raw C the objects won't be 
 // directly called with the provided callback function. *However*, the callback
 // function itself can use the provided object addresses and call any function
 // it wishes from there. The callback is only called if the listener's source
-// and the sayted message's source match.
+// and the say message's source match.
 void listen(unsigned int source, 
-             enum msg_types type,
+             msg_types type,
              unsigned int destination,
 			 void (*callback)(void* payload));
 
@@ -61,7 +61,7 @@ void listen(unsigned int source,
 // that also have a 'NULL' destination, it does *not* match all listeners.
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
-chan unlisten(enum msg_types type, unsigned int destination);
+chan unlisten(msg_types type, unsigned int destination);
 
 /* End User Facing Functions */
 /*****************************************************************************/

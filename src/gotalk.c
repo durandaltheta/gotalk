@@ -3,7 +3,7 @@
 #include <libmill.h>
 #include "gotalk.h"
 
-static const int g_total_msg_types_size = END_TALK - START_TALK;
+const int g_total_msg_types_size = END_TALK - START_TALK;
 
 typedef struct {
     void *data;
@@ -11,20 +11,20 @@ typedef struct {
 } List;
 
 typedef struct {
-    enum msg_types type;
+    msg_types type;
 	unsigned int source;
     void *payload;
 } talk_msg;
 
 typedef struct {
-    enum msg_types type;
+    msg_types type;
     unsigned int source;
     unsigned int destination;
 	void (*callback)(talk_msg);
 } talk_registration;
 
 typedef struct {
-    enum msg_types type;
+    msg_types type;
     unsigned int source;
     unsigned int destination;
     chan conf_ch;
@@ -182,7 +182,7 @@ coroutine void message_center(chan main_ch) {
 }
 
 void forward_registration(chan channels[], talk_msg msg) {
-    enum msg_types type;
+    msg_types type;
     talk_registration reg;
 
     reg = (talk_registration)(*payload);
@@ -195,7 +195,7 @@ void forward_registration(chan channels[], talk_msg msg) {
 }
 
 void forward_unregistration(chan channels[], talk_msg msg) {
-    enum msg_types type;
+    msg_types type;
     talk_unregistration reg;
 
     reg = (talk_unregistration)(*payload);
@@ -208,7 +208,7 @@ void forward_unregistration(chan channels[], talk_msg msg) {
 }
 
 void forward_msg(chan channels[], talk_msg msg) {
-    enum msg_types type;
+    msg_types type;
 
     type = msg.type;
 
@@ -308,7 +308,7 @@ coroutine void message_manager(chan incoming_msgs) {
 }
 
 void register_listener(List* listener_list, talk_msg msg) {
-    enum msg_types type;
+    msg_types type;
     talk_registration *reg = (talk_registration*)payload;
 
     chan ch = chmake(talk_msg, TALK_MESSAGE_MANAGER_BUFFER_SIZE);
@@ -461,13 +461,13 @@ void say(unsigned int source, msg_types type, void* payload) {
     return;
 }
 
-void listen(enum msg_types type, void (*callback)(void* payload)) {
+void listen(msg_types type, void (*callback)(void* payload)) {
     listen(NULL, type, NULL, callback);
     return;
 }
 
 void listen(unsigned int source, 
-             enum msg_types type,
+             msg_types type,
              unsigned int destination,
 			 void (*callback)(void* payload));
     //malloc 0
@@ -478,7 +478,7 @@ void listen(unsigned int source,
 	return;
 }
 
-chan unlisten(enum msg_types type, unsigned int destination) {
+chan unlisten(msg_types type, unsigned int destination) {
     //malloc 1
     talk_unregistration unreg* = malloc(sizeof(talk_unregistration));
     chan conf_ch = chmake(int, 1);
