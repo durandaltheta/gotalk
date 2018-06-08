@@ -41,12 +41,18 @@ void stop_message_center(chan ch);
 
 // send a message
 void say(chan msg_center, msg_types type, void* payload);
+void say(chan msg_center, msg_types type, unsigned int source, ...);
 
 // send a message with a specific source id. This can be an object address.
 void say(chan msg_center, unsigned int source, msg_types type, void* payload);
 
 // register a callback for a message
 void listen(chan msg_center, msg_types type, void (*callback)(void* payload));
+void listen(chan msg_center, 
+            unsigned int source, 
+            msg_types type, 
+            unsigned int destination, 
+            ...);
 
 // register a callback for a message with a specific destination and source 
 // id's. These can be an object addresses. As this is raw C the objects won't be 
@@ -66,8 +72,6 @@ void listen(chan msg_center,
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
 chan unlisten(chan msg_center, msg_types type, unsigned int destination);
-
-#include "message_definitions.h"
 
 /* End User Facing Functions */
 /*****************************************************************************/

@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <math.h>
 #include <libmill.h>
@@ -62,7 +63,6 @@ void unregister_listener(listener_list, chan ch, talk_msg msg);
 coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg);
 /* End Forward Declarations */
 /*****************************************************************************/
-
 
 /*****************************************************************************/
 /* Begin List Functions */
@@ -307,8 +307,8 @@ coroutine void message_manager(chan incoming_msgs) {
     return;
 }
 
+/*
 void register_listener(List* listener_list, talk_msg msg) {
-    msg_types type;
     talk_registration *reg = (talk_registration*)payload;
 
     chan ch = chmake(talk_msg, TALK_MESSAGE_MANAGER_BUFFER_SIZE);
@@ -326,6 +326,7 @@ void register_listener(List* listener_list, talk_msg msg) {
     go(callback_handler(ch, reg);
     return;
 }
+*/
 
 void unregister_listener(listener_list, index, chan ch, talk_msg msg) {
     talk_msg unreg_msg = {UNREGISTER_listener, NULL, NULL};
@@ -411,8 +412,6 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
                     } else {
                         chs(talk_msg, {REGISTER_listener, NULL, NULL});
                     }
-                #ifdef OBJECT_CALLBACKS
-                #endif
                 default:
                     if(start) {
                         // Don't care about the message type, that's handled 
@@ -452,11 +451,11 @@ void stop_message_center(chan ch) {
 }
 
 void say(chan msg_center, msg_types type, void* payload) {
-    say(msg_center, NULL, type, payload);
+    _say(msg_center, NULL, type, payload);
     return;
 }
 
-void say(chan msg_center, unsigned int source, msg_types type, void* payload) {
+void _say(chan msg_center, unsigned int source, msg_types type, void* payload) {
     talk_msg msg = {type, source, payload};
     chs(msg_center, talk_msg, msg);
     return;
@@ -489,5 +488,8 @@ chan unlisten(chan msg_center, msg_types type, unsigned int destination) {
     say(msg_center, unrec_msg);
     return conf_ch;
 }
+
+#include "message_definitions.h"
+
 /* End User Facing Functions */
 /*****************************************************************************/
