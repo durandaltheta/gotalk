@@ -16,18 +16,20 @@ def scan_source_for_messages():
 
     messages=[]
     enums=[]
-    definitions=[]
 
     for f in files:
         for message in scan_file_for_messages(f):
-            messages += message
+            pieces = parse_message_content(message)
+            messages += pieces
+            enums = pieces[0]
 
-    for message in messages:
-        msg_pieces = parse_message_content(message)
-        enums+=msg_pieces[0]
+    definitions=generate_definitions()
 
     write_enums(enums)
     write_definitions(definitions)
+
+
+def generate_definitions(messages)
 
 
 def get_files_to_scan(path):
