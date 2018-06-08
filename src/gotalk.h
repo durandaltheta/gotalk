@@ -20,12 +20,15 @@ Example:
 typedef enum {
 	START_TALK = 0,
 	REGISTER_LISTENER,
-	UNREGISTER_LISTENER,
-#ifdef TALK_MESSAGES
-	TALK_MESSAGES 
-#endif
+    UNREGISTER_LISTENER,
+#include "message_enums.h"
 	END_TALK
 } msg_types;
+
+/* replace message() text with blank whitespace. Enum creation is handled by 
+ * external script 
+ */
+#define message(x)
 
 /*****************************************************************************/
 /* Begin User Facing Functions */
@@ -63,6 +66,8 @@ void listen(chan msg_center,
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
 chan unlisten(chan msg_center, msg_types type, unsigned int destination);
+
+#include "message_definitions.h"
 
 /* End User Facing Functions */
 /*****************************************************************************/
