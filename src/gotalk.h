@@ -1,21 +1,12 @@
-#define TALK_MESSAGE_CENTER_BUFFER_SIZE 1000
-#define TALK_MESSAGE_MANAGER_BUFFER_SIZE 5
-
-/*
- Override this define with a multiline (end each line with a \), 
- comma separated list of custom message names
-
-Example:
-#ifdef TALK_MESSAGES 
-#undef TALK_MESSAGES
-#define TALK_MESSAGES message1, \
-                      message2, \
-                      message3,
+#ifdef message
+#undef message 
+#endif
+#ifdef listen 
+#undef listen 
 #endif
 
- The library user is responsible for keeping track of the intended payload 
- for each message type.
-*/
+#define TALK_MESSAGE_CENTER_BUFFER_SIZE 1000
+#define TALK_MESSAGE_MANAGER_BUFFER_SIZE 5
 
 typedef enum {
 	START_TALK = 0,
@@ -24,11 +15,6 @@ typedef enum {
 #include "message_enums.h"
 	END_TALK
 } msg_types;
-
-/* replace message() text with blank whitespace. Enum creation is handled by 
- * external script 
- */
-#define message(x)
 
 /*****************************************************************************/
 /* Begin User Facing Functions */
@@ -72,6 +58,12 @@ void listen(chan msg_center,
 // Returns a confirmation channel for the calling function. It sends a
 // confirmation integer '1' when the unregistration is complete.
 chan unlisten(chan msg_center, msg_types type, unsigned int destination);
+
+/* replace message() and listen() text with blank whitespace. Enum creation 
+ * is handled by external script 
+ */
+#define message(...)
+#define listen(...)
 
 /* End User Facing Functions */
 /*****************************************************************************/

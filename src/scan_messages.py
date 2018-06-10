@@ -3,72 +3,87 @@ import sys
 if sys.argc < 2:
     exit(0)
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-src_dir = sys.argv[1]
 
-msg_prescript = "message("
-msg_postscript = ");"
+# It's easier to modify the definitions of messages() and listens() if I define 
+# them in one place
+class globals():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = sys.argv[1]
+
+    msg_pre = "message("
+    msg_post = ");"
+
+    listen_pre = "listen("
+    listen_post = ");"
 
 
 def scan_source_for_messages():
-    global src_dir
-    files = get_files_to_scan(src_dir)
+    files = get_files_to_scan(globals.src_dir)
 
     messages = []
+    callbacks = []
     enums = []
 
     for f in files:
-        for message in scan_file_for_messages(f):
-            pieces = parse_message_content(message)
+        for message in scan_file_for_pattern(f, globals.msg_pre, globals.msg_post):
+            pieces = parse_pattern_content(message)
             messages += pieces
             enums = pieces[0]
+        for listen in scan_file_for_pattern(f, globals.listen_pre, globals.listen_post):
+            callbacks += parse_pattern_content(listen)[-1]
 
-    definitions = generate_definitions()
+    definitions = generate_definitions(messages, callbacks)
 
     write_enums(enums)
     write_definitions(definitions)
 
 
-def scan_file_for_messages(path):
-    global msg_prescript
-    global msg_postscript
-
-    import re 
-
-    pattern = re.compile("\s*"+msg_prescript+".*"+msg_postscript)
-
+def scan_file_for_pattern(path, prescript, postscript):
     f=open(path, 'r')
     lines=f.readlines()
-    messages=[]
+
+    contents = []
 
     for line in lines:
+        content = extract_content_from_pattern(line, prescript, postscript)
+        if content is not None:
+            contents += content
+
+    return contents
+
+
+def extract_content_from_pattern(line, prescript, postscript)
+        import re 
+        pattern = re.compile("\s*"+prescript+".*"+postscript)
         result = pattern.search(line)
+
         if result:
             line = line.lstrip()
-            line = line[len(msg_prescript):]
-            post = line.find(msg_postscript)
+            line = line[len(prescript):]
+            post = line.find(postscript)
             line = line[:post-1]
-            messages += line 
+            return line 
+        else:
+            return None
 
-    return messages
 
-
-def parse_message_content(message):
+# return a list of the pattern's comma separated content
+def parse_pattern_content(pattern):
     return [x.strip() for x in message.split(',')]
 
 
-def generate_definitions(messages):
-    structs = generate_structs_definitions(messages)
+def generate_definitions(messages, callbacks):
+    structs = generate_structs_definitions(messages, callbacks)
     say = generate_say_definition(messages)
-    lis = generate_listen_definition(messages)
-    call = generate_callback_handler_definitions(messages)
-    reg = generate_register_listener_definition(messages)
+    lis = generate_listen_definition(messages, callbacks)
+    call = generate_callback_handler_definitions(messages, callbacks)
+    reg = generate_register_listener_definition(messages, callbacks)
 
     definitions = structs + lis + say + call +reg
     return definitions
 
 
-def generate_structs_definitions(messages):
+def generate_structs_definitions(messages, callbacks):
     structs = ""
     for message in messages:
         name = message[0]
@@ -77,7 +92,16 @@ def generate_structs_definitions(messages):
         if len(message) > 1:
             types = message[1:]
         structs += generate_msg_struct_definition(name, types)
-        structs += generate_registration_struct_definition(name, types)
+
+        """
+        void listen(chan msg_center, 
+                    unsigned int source, 
+                    msg_types type, 
+                    unsigned int destination, 
+                    ...);
+        """
+        for callback in callbacks:
+            structs += generate_registration_struct_definition(name, types, callback)
 
     return structs
 
@@ -93,13 +117,16 @@ def generate_msg_struct_definition(name, types):
     definition += "} talk_msg_"+name+";\n\n"
 
 
-def generate_registration_struct_definition(name, types):
+def generate_registration_struct_definition(name, types, callback):
     definition = "typedef struct {\n"
 
     for t in types:
-        definition += t+" "+t+"v;\n"
+        definition += "\t"t+" "+t+"v;\n"
 
-    definition += "} talk_registration_"+name+";\n\n"
+    definition += "\t"+callback" f;\n"
+    call_object_type = extract_content_from_pattern(callback, '(', ')')
+
+    definition += "} talk_registration_"+name+"_"+call_object_type+";\n\n"
 
 
 def generate_say_definition(messages):
@@ -147,6 +174,7 @@ def generate_listen_definition(messages):
     lis += "\tunsigned int destination,\n"
     lis += "\t...){\n"
 
+    cnt = 0
     for message in messages:
         name = message[0]
         types = []
@@ -154,9 +182,10 @@ def generate_listen_definition(messages):
         if len(message) > 1:
             types = message[1:]
 
-        lis += "\t//malloc 3\n"
+        lis += "\t//malloc listen definition "+cnt+"\n"
         lis += "\ttalk_registration reg* = malloc(sizeof(talk_registration));\n"
         lis += "\t(*reg) = {type, source, destination, callback};\n"
+        cnt += 1
 
     lis += "\ttalk_msg reg_msg = {REGISTER_listener, source, reg};\n"
     lis += "\tsay(msg_center, reg_msg);\n"
