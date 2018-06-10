@@ -15,6 +15,7 @@ class globals():
 
     listen_pre = "listen("
     listen_post = ");"
+    register_listener = "REGISTER_LISTENER_"
 
 
 def scan_source_for_messages():
@@ -30,9 +31,10 @@ def scan_source_for_messages():
             messages += pieces
             enums = pieces[0]
         for listen in scan_file_for_pattern(f, globals.listen_pre, globals.listen_post):
-            callbacks += parse_pattern_content(listen)[-1]
+            listens += parse_pattern_content(listen)
 
-    definitions = generate_definitions(messages, callbacks)
+    enums = generate_registration_enums(enums, listens)
+    definitions = generate_definitions(messages, listens)
 
     write_enums(enums)
     write_definitions(definitions)
@@ -72,36 +74,60 @@ def parse_pattern_content(pattern):
     return [x.strip() for x in message.split(',')]
 
 
-def generate_definitions(messages, callbacks):
-    structs = generate_structs_definitions(messages, callbacks)
+def generate_registration_enums(enums, listens):
+    for listen in listens:
+        name = listens[0]
+        callback = enumerize_callback(listens[-1])
+        new_enum = generate_registration_enum(name,callback)
+
+        if new_enum not in enums:
+            enums += new_enum
+
+    return enums
+
+
+def generate_registration_enum(name,callback):
+    return globals.register_listener+name+"_"+callback
+
+
+def enumerize_callback(callback):
+    callback = callback.replace('(','')
+    callback = callback.replace(')','')
+    callback = callback.replace('*','')
+    callback = callback.replace('&','')
+    callback = callback.replace('.','')
+    return callback
+
+
+def generate_definitions(messages, listens):
+    structs = generate_structs_definitions(messages, listens)
     say = generate_say_definition(messages)
-    lis = generate_listen_definition(messages, callbacks)
-    call = generate_callback_handler_definitions(messages, callbacks)
-    reg = generate_register_listener_definition(messages, callbacks)
+    lis = generate_listen_definition(messages, listens)
+    call = generate_callback_handler_definitions(messages, listens)
+    reg = generate_register_listener_definition(messages, listens)
 
     definitions = structs + lis + say + call +reg
     return definitions
 
 
-def generate_structs_definitions(messages, callbacks):
+def generate_structs_definitions(messages, listens):
     structs = ""
     for message in messages:
         name = message[0]
         types = []
+        reg_struct_list = []
 
         if len(message) > 1:
             types = message[1:]
         structs += generate_msg_struct_definition(name, types)
 
-        """
-        void listen(chan msg_center, 
-                    unsigned int source, 
-                    msg_types type, 
-                    unsigned int destination, 
-                    ...);
-        """
-        for callback in callbacks:
-            structs += generate_registration_struct_definition(name, types, callback)
+    for listen in listens:
+        lname = listen[0]
+        callback = listen[-1]
+        # verify def doesn't already exist
+        if lname+callback not in reg_struct_list:
+            reg_struct_list += lname+callback
+            structs += generate_registration_struct_definition(name, callback)
 
     return structs
 
@@ -117,16 +143,16 @@ def generate_msg_struct_definition(name, types):
     definition += "} talk_msg_"+name+";\n\n"
 
 
-def generate_registration_struct_definition(name, types, callback):
+def generate_registration_struct_definition(name, callback):
     definition = "typedef struct {\n"
-
-    for t in types:
-        definition += "\t"t+" "+t+"v;\n"
+    definition = "\t msg_types "+name+";\n"
+    definition = "\tunsigned int source;\n"
+    definition = "\tunsigned int destination;\n"
 
     definition += "\t"+callback" f;\n"
-    call_object_type = extract_content_from_pattern(callback, '(', ')')
 
-    definition += "} talk_registration_"+name+"_"+call_object_type+";\n\n"
+    reg_struct_name = generate_registration_enum(name, callback)
+    definition += "} "+reg_struct_name+";\n\n"
 
 
 def generate_say_definition(messages):

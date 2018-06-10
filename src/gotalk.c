@@ -329,12 +329,12 @@ void register_listener(List* listener_list, talk_msg msg) {
 */
 
 void unregister_listener(listener_list, index, chan ch, talk_msg msg) {
-    talk_msg unreg_msg = {UNREGISTER_listener, NULL, NULL};
+    talk_msg unreg_msg = {UNREGISTER_LISTENER, NULL, NULL};
     chs(ch, talk_msg, unreg_msg);
     while(1) {
         choose {
         in(ch, talk_msg msg):
-            if(msg.type == UNREGISTER_listener) {
+            if(msg.type == UNREGISTER_LISTENER) {
                 // wait to delete the channel until we listen unregistration 
                 // confirmation
                 
@@ -344,7 +344,7 @@ void unregister_listener(listener_list, index, chan ch, talk_msg msg) {
                 remove(listener_list, index);
                 chclose(ch);
                 break;
-            } else if(msg.type == REGISTER_listener) {
+            } else if(msg.type == REGISTER_LISTENER) {
                 break;
             }
         end 
@@ -406,11 +406,11 @@ coroutine void callback_handler(chan incoming_msgs, talk_registration* tmp_reg) 
                 case UNREGISTER_LISTENER:
                     unregister_listener *unreg = msg.payload;
                     if((*unreg).source == listener.source) {
-                        chs(talk_msg, {UNREGISTER_listener, NULL, NULL});
+                        chs(talk_msg, {UNREGISTER_LISTENER, NULL, NULL});
                         exit = true;
                         break;
                     } else {
-                        chs(talk_msg, {REGISTER_listener, NULL, NULL});
+                        chs(talk_msg, {REGISTER_LISTENER, NULL, NULL});
                     }
                 default:
                     if(start) {
@@ -474,7 +474,7 @@ void listen(chan msg_center,
     //malloc 0
 	talk_registration reg* = malloc(sizeof(talk_registration));
     (*reg) = {type, source, destination, callback};
-	talk_msg reg_msg = {REGISTER_listener, source, reg};
+	talk_msg reg_msg = {REGISTER_LISTENER, source, reg};
 	say(msg_center, reg_msg);
 	return;
 }
@@ -484,7 +484,7 @@ chan unlisten(chan msg_center, msg_types type, unsigned int destination) {
     talk_unregistration unreg* = malloc(sizeof(talk_unregistration));
     chan conf_ch = chmake(int, 1);
     (*unreg) = {type, source, destination, conf_ch};
-    talk_msg unrec_msg = {UNREGISTER_listener, NULL, unreg};
+    talk_msg unrec_msg = {UNREGISTER_LISTENER, NULL, unreg};
     say(msg_center, unrec_msg);
     return conf_ch;
 }
